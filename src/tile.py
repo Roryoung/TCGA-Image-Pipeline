@@ -77,21 +77,21 @@ def tile(slide_loc, output_dir, background=0.2, size=255):
                     tile.save(f"{tile_name}.jpeg")
 
                 else:
-                    # if np.random.uniform() < 0.1:
-                    reject_dir = os.path.join(slide_output_dir, str(thisMag), "rejected")
-                    if not os.path.exists(reject_dir):
-                        os.makedirs(reject_dir)
+                    if np.random.uniform() < 0.1:
+                        reject_dir = os.path.join(slide_output_dir, str(thisMag), "rejected")
+                        if not os.path.exists(reject_dir):
+                            os.makedirs(reject_dir)
 
-                    reject_tile_name = os.path.join(reject_dir, f"{col}_{row}_{avg_brightness}")
-                    tile.save(f"{reject_tile_name}.jpeg")
+                        reject_tile_name = os.path.join(reject_dir, f"{col}_{row}_{avg_brightness}")
+                        tile.save(f"{reject_tile_name}.jpeg")
                         
 
 
 if __name__ == "__main__":
     parser = OptionParser(usage='Usage: %prog <slide> <output_folder> [options]')
     parser.add_option('-o', '--output', metavar='NAME', dest='output_dir', help='base name of output file')
-    parser.add_option('-b', '--background', metavar='PIXELS', dest='background', type='float', default=0.2, help='Max background threshold [0.1]; percentage of background allowed')
-    parser.add_option('-s', '--size', metavar='PIXELS', dest='tile_size', type='int', default=255, help='tile size [299]')
+    parser.add_option('-b', '--background', metavar='PIXELS', dest='background', type='float', default=0.2, help='Max background threshold [0.2]; percentage of background allowed')
+    parser.add_option('-s', '--size', metavar='PIXELS', dest='tile_size', type='int', default=255, help='tile size [255]')
     
     (opts, args) = parser.parse_args()
 
