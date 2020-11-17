@@ -10,7 +10,7 @@ from PIL import Image
 import cv2
 
 
-def get_background_percentage(tile):
+def get_background_percentage(tile, threshold=225):
     """
         This function calculates the amount of white background in a given tile.
 
@@ -21,22 +21,14 @@ def get_background_percentage(tile):
             - Float: The precentage of background in the tile
     """
 
-    #convert tile to strict black and white (not greyscale)
+    #convert tile to strict black and white (not greyscale)    
     grey = tile.convert("L")
-    bw = grey.point(lambda x: 0 if x>= 225 else 255)
-    
-    #floodfill black and white image
-    des = np.array(bw)
-    contour, hier = cv2.findContours(des,cv2.RETR_CCOMP,cv2.CHAIN_APPROX_SIMPLE)
+    bw = grey.point(lambda x: 0 if x< 225 else 255)
 
-    for cnt in contour:
-        cv2.drawContours(des,[cnt],0,255,-1)
-
-    #calculate background %
-    bw_arr = np.array(des)
-    white_cells = np.count_nonzero(bw_arr == 0)
-    black_cells = np.count_nonzero(bw_arr == 255)
-    return white_cells/(white_cells+black_cells)
+    bw_arr = np.array(bw)
+    foreground_cells = np.count_nonzero(bw_arr == 0)
+    background_cells = np.count_nonzero(bw_arr == 255)
+    return background_cells/(foreground_cells+background_cells)
 
 
 def normalize_tile(tile):
@@ -59,7 +51,7 @@ def normalize_tile(tile):
     return Image.fromarray(normalized_tile)
 
 
-def tile(slide_loc, output_dir, background=0.2, size=255):
+def tile(slide_loc, output_dir, background=0.2, threshold=225, size=255):
     """
         This function will save tiles of the given H&E stained slide at different zoom levels.
 
@@ -95,10 +87,10 @@ def tile(slide_loc, output_dir, background=0.2, size=255):
                 tile = dz.get_tile(level, (col, row))
                 tile_name = os.path.join(tile_dir, f"{col}_{row}")
 
-                avg_brightness = get_background_percentage(tile)
+                tile_background = get_background_percentage(tile, threshold)
                 #tile = normalize_tile(tile)
 
-                if avg_brightness < background:
+                if tile_background < background:
                     tile.save(f"{tile_name}.jpeg")
 
                 else:
@@ -107,7 +99,7 @@ def tile(slide_loc, output_dir, background=0.2, size=255):
                         if not os.path.exists(reject_dir):
                             os.makedirs(reject_dir)
 
-                        reject_tile_name = os.path.join(reject_dir, f"{col}_{row}_{avg_brightness}")
+                        reject_tile_name = os.path.join(reject_dir, f"{col}_{row}_{tile_background}")
                         tile.save(f"{reject_tile_name}.jpeg")
                         
 
@@ -115,9 +107,10 @@ def tile(slide_loc, output_dir, background=0.2, size=255):
 if __name__ == "__main__":
     parser = OptionParser(usage='Usage: %prog <slide> <output_folder> [options]')
     parser.add_option('-o', '--output', metavar='NAME', dest='output_dir', help='base name of output file')
-    parser.add_option('-b', '--background', metavar='PIXELS', dest='background', type='float', default=0.2, help='Max background threshold [0.2]; percentage of background allowed')
+    parser.add_option('-b', '--background', metavar='PIXELS', dest='background', type='float', default=0.2, help='Percentage of background allowed [0.2]')
+    parser.add_option('-t', '--threshold', metavar='', dest='threshold', type='int', default=225, help='Backgorund threshold [225 ]')
     parser.add_option('-s', '--size', metavar='PIXELS', dest='tile_size', type='int', default=255, help='tile size [255 ]')
-    
+
     (opts, args) = parser.parse_args()
 
     try:
