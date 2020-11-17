@@ -15,7 +15,7 @@ class Tile:
         This class will save tiles of the given H&E stained slide at different zoom levels.
     """
 
-    def __init__(self, slide_loc, output_dir, background=0.2, threshold=225, size=255, reject_rate=0.1):
+    def __init__(self, slide_loc, output_dir, background=0.2, threshold=225, size=255, reject_rate=0.1, ignore_repeat=False):
         """
             Args:
                 - slide_loc: A .svs file of the H&E stained slides
@@ -24,6 +24,7 @@ class Tile:
                 - threshold: The maximum greyscale value for a pixel to be considered background
                 - size: The width and hight of the tiles at each zoom level
                 - reject_rate: The precentage of rejected tiles to save
+                - ignore_repeat: Automatically overwrte repeated files in the dataset
             Returns:
                 - None
         """
@@ -38,21 +39,28 @@ class Tile:
         file_name = os.path.basename(slide_loc).split(".")[0]
         self.slide_output_dir = os.path.join(output_dir, file_name)
 
+        proceed = "y"
+
         if os.path.exists(self.slide_output_dir):
-            shutil.rmtree(self.slide_output_dir)
-            
-        os.makedirs(self.slide_output_dir)
+            if not ignore_repeat:
+                print(f"{file_name} is already in the dataset. Do you wish to overwrite these tiles? [y/n]")
+                proceed = input()
+            if proceed == "y":
+                shutil.rmtree(self.slide_output_dir)
 
-        maxZoom = float(self.slide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]) / self.slide.level_downsamples[0]
+        if proceed == "y":
+            os.makedirs(self.slide_output_dir)
 
-        for level in range(1, self.dz.level_count):
-            thisMag = maxZoom/pow(2,self.dz.level_count-(level+1))
-            tile_dir = os.path.join(self.slide_output_dir, str(thisMag))
-            print("\rTiling slide {}, Zoom level {:.2f}".format(file_name, thisMag), end="")
+            maxZoom = float(self.slide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]) / self.slide.level_downsamples[0]
 
-            self.tile_level(level, tile_dir)
+            for level in range(1, self.dz.level_count):
+                thisMag = maxZoom/pow(2,self.dz.level_count-(level+1))
+                tile_dir = os.path.join(self.slide_output_dir, str(thisMag))
+                print("\rTiling slide {}, Zoom level {:.2f}".format(file_name, thisMag), end="")
 
-        print()
+                self.tile_level(level, tile_dir)
+
+            print()
 
 
     def tile_level(self, level, tile_dir):
@@ -138,6 +146,7 @@ if __name__ == "__main__":
     parser.add_option('-t', '--threshold', metavar='', dest='threshold', type='int', default=225, help='Backgorund threshold [225]')
     parser.add_option('-s', '--size', metavar='PIXELS', dest='tile_size', type='int', default=255, help='tile size [255]')
     parser.add_option('-r', '--reject', dest='reject', type='float', default=0.1, help='Precentage of rejected background tiles to save [0.1]')
+    parser.add_option('-i', '--ignore_repeat', dest='ignore_repeat', action="store_true", help='Automatically overwrte repeated files in the dataset [False]')
 
     (opts, args) = parser.parse_args()
 
@@ -149,4 +158,12 @@ if __name__ == "__main__":
     if opts.output_dir is None:
         parser.error("Missing output directory argument")
 
-    tile = Tile(slide_loc=slide_path, output_dir=opts.output_dir, background=opts.background, size=opts.tile_size, threshold=opts.threshold, reject_rate=opts.reject)
+    tile = Tile(
+        slide_loc=slide_path,
+        output_dir=opts.output_dir,
+        background=opts.background,
+        size=opts.tile_size,
+        threshold=opts.threshold,
+        reject_rate=opts.reject,
+        ignore_repeat=opts.ignore_repeat
+    )
