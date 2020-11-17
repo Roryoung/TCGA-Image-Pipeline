@@ -46,8 +46,11 @@ class Tile:
         for level in range(1, self.dz.level_count):
             thisMag = maxZoom/pow(2,self.dz.level_count-(level+1))
             tile_dir = os.path.join(self.slide_output_dir, str(thisMag))
+            print("\rTiling slide {}, Zoom level {:.2f}".format(file_name, thisMag), end="")
 
             self.tile_level(level, tile_dir)
+
+        print()
 
 
     def tile_level(self, level, tile_dir):
