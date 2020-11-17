@@ -38,6 +38,8 @@ class Tile:
 
         file_name = os.path.basename(slide_loc).split(".")[0]
         self.slide_output_dir = os.path.join(output_dir, file_name)
+        self.tiles = {}
+        self.reject_tiles = {}
 
         proceed = "y"
 
@@ -50,20 +52,10 @@ class Tile:
 
         if proceed == "y":
             os.makedirs(self.slide_output_dir)
-
-            maxZoom = float(self.slide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]) / self.slide.level_downsamples[0]
-
-            for level in range(1, self.dz.level_count):
-                thisMag = maxZoom/pow(2,self.dz.level_count-(level+1))
-                tile_dir = os.path.join(self.slide_output_dir, str(thisMag))
-                print("\rTiling slide {}, Zoom level {:.2f}".format(file_name, thisMag), end="")
-
-                self.tile_level(level, tile_dir)
-
-            print()
+            self.get_tiles()
 
 
-    def tile_level(self, level, tile_dir):
+    def get_tiles(self):
         """
             This function will save all the relevant tiles for a given zoom level.
 
@@ -74,29 +66,53 @@ class Tile:
             Returns:
                 - None
         """
-        if not os.path.exists(tile_dir):
-            os.makedirs(tile_dir)
-        
-        reject_dir = os.path.join(tile_dir, "rejected")
-        if not os.path.exists(reject_dir):
-            os.makedirs(reject_dir)
+        maxZoom = float(self.slide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]) / self.slide.level_downsamples[0]
 
-        cols, rows = self.dz.level_tiles[level]
-        for row in range(rows):
-            for col in range(cols):
-                tile = self.dz.get_tile(level, (col, row))
+        for level in range(1, self.dz.level_count):
+            level_tiles = {}
+            level_reject_tiles = {}
+            thisMag = maxZoom/pow(2,self.dz.level_count-(level+1))
+
+            cols, rows = self.dz.level_tiles[level]
+            for row in range(rows):
+                for col in range(cols):
+                    tile = self.dz.get_tile(level, (col, row))
+
+                    tile_background = self.get_background_percentage(tile)
+
+                    if tile_background < self.background:
+                        level_tiles[(col, row)] = tile
+
+                    else:
+                        if np.random.uniform() < self.reject_rate:
+                            level_reject_tiles[(col, row)] = tile
+
+            self.tiles[thisMag] = level_tiles
+            self.reject_tiles[thisMag] = level_reject_tiles
+
+
+    def save(self):
+        for thisMag, level_tiles in self.tiles.items():
+            tile_dir = os.path.join(self.slide_output_dir, str(thisMag))
+
+            if not os.path.exists(tile_dir):
+                os.makedirs(tile_dir)
+
+            for (col, row), tile in level_tiles.items():
                 tile_name = os.path.join(tile_dir, f"{col}_{row}")
+                tile.save(f"{tile_name}.jpeg")
 
-                tile_background = self.get_background_percentage(tile)
-                #tile = normalize_tile(tile)
+        for thisMag, level_reject_tiles in self.reject_tiles.items():
+            tile_dir = os.path.join(self.slide_output_dir, str(thisMag))
 
-                if tile_background < self.background:
-                    tile.save(f"{tile_name}.jpeg")
+            reject_dir = os.path.join(tile_dir, "rejected")
+            if not os.path.exists(reject_dir):
+                os.makedirs(reject_dir)
 
-                else:
-                    if np.random.uniform() < self.reject_rate:
-                        reject_tile_name = os.path.join(reject_dir, f"{col}_{row}_{tile_background}")
-                        tile.save(f"{reject_tile_name}.jpeg")
+            for (col, row), reject_tile in level_reject_tiles.items():
+                reject_tile_name = os.path.join(reject_dir, f"{col}_{row}")
+                reject_tile.save(f"{reject_tile_name}.jpeg")
+
 
     def get_background_percentage(self, tile):
         """
@@ -167,3 +183,4 @@ if __name__ == "__main__":
         reject_rate=opts.reject,
         ignore_repeat=opts.ignore_repeat
     )
+    tile.save()
