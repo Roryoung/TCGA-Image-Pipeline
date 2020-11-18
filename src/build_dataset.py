@@ -1,21 +1,32 @@
 import os
 from optparse import OptionParser
+import numpy as np
 
 from tile import Tile
+from normalize import Normalizer
 
 def build_dataset(slide_dir, output_dir, background=0.2, threshold=225, size=255, reject_rate=0.1, ignore_repeat=False):
+    normalizer = Normalizer()
+    
+    slide_tiles = []
     for filename in os.listdir(slide_dir):
         slide_path = os.path.join(slide_dir, filename)
         tile = Tile(
             slide_loc=slide_path,
             output_dir=opts.output_dir,
+            normalizer=normalizer,
             background=opts.background,
             size=opts.tile_size,
             threshold=opts.threshold,
             reject_rate=opts.reject,
             ignore_repeat=opts.ignore_repeat
         )
-        tile.save()
+        slide_tiles.append(tile)
+
+    print(np.mean(normalizer.means, axis=0))
+    print(np.mean(normalizer.stds, axis=0))
+    for tile in slide_tiles:
+        tile.save(normalizer)
 
 
 if __name__ == "__main__":

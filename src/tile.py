@@ -15,7 +15,7 @@ class Tile:
         This class will save tiles of the given H&E stained slide at different zoom levels.
     """
 
-    def __init__(self, slide_loc, output_dir, background=0.2, threshold=225, size=255, reject_rate=0.1, ignore_repeat=False):
+    def __init__(self, slide_loc, output_dir, normalizer=None, background=0.2, threshold=225, size=255, reject_rate=0.1, ignore_repeat=False):
         """
             Args:
                 - slide_loc: A .svs file of the H&E stained slides
@@ -28,6 +28,7 @@ class Tile:
             Returns:
                 - None
         """
+        self.normalizer = normalizer
         self.background = background
         self.threshold = threshold
         self.size = size
@@ -82,6 +83,8 @@ class Tile:
 
                     if tile_background < self.background:
                         level_tiles[(col, row)] = tile
+                        if self.normalizer is not None:
+                            self.normalizer.fit(tile)
 
                     else:
                         if np.random.uniform() < self.reject_rate:
@@ -91,7 +94,7 @@ class Tile:
             self.reject_tiles[thisMag] = level_reject_tiles
 
 
-    def save(self):
+    def save(self, normalizer=None):
         for thisMag, level_tiles in self.tiles.items():
             tile_dir = os.path.join(self.slide_output_dir, str(thisMag))
 
@@ -100,6 +103,8 @@ class Tile:
 
             for (col, row), tile in level_tiles.items():
                 tile_name = os.path.join(tile_dir, f"{col}_{row}")
+                if normalizer is not None:
+                    tile = normalizer.normalize(tile)
                 tile.save(f"{tile_name}.jpeg")
 
         for thisMag, level_reject_tiles in self.reject_tiles.items():
@@ -111,6 +116,8 @@ class Tile:
 
             for (col, row), reject_tile in level_reject_tiles.items():
                 reject_tile_name = os.path.join(reject_dir, f"{col}_{row}")
+                # if normalizer is not None:
+                #     reject_tile = normalizer.normalize(reject_tile)
                 reject_tile.save(f"{reject_tile_name}.jpeg")
 
 
