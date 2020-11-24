@@ -21,12 +21,6 @@ def build_dataset(slide_dir, output_dir, background=0.2, threshold=225, size=255
             reject_rate=opts.reject,
             ignore_repeat=opts.ignore_repeat
         )
-        slide_tiles.append(tile)
-
-    print(np.mean(normalizer.means, axis=0))
-    print(np.mean(normalizer.stds, axis=0))
-    for tile in slide_tiles:
-        tile.save(normalizer)
 
 
 if __name__ == "__main__":

@@ -5,10 +5,14 @@ import numpy as np
 import openslide
 from openslide import open_slide
 from openslide.deepzoom import DeepZoomGenerator
-import staintools
 from PIL import Image
-import cv2
 import shutil
+
+
+from scipy.ndimage.morphology import binary_fill_holes
+from skimage.color import rgb2gray
+from skimage.feature import canny
+from skimage.morphology import binary_closing, binary_dilation, disk
 
 class Tile:
     """
@@ -20,13 +24,12 @@ class Tile:
             Args:
                 - slide_loc: A .svs file of the H&E stained slides
                 - output_dir: The location where the tiles will be saved
+                - normalizer: A tile normalizer object
                 - background: The maximum precentage of background allowed for a saved tile 
                 - threshold: The maximum greyscale value for a pixel to be considered background
                 - size: The width and hight of the tiles at each zoom level
                 - reject_rate: The precentage of rejected tiles to save
                 - ignore_repeat: Automatically overwrte repeated files in the dataset
-            Returns:
-                - None
         """
         self.normalizer = normalizer
         self.background = background
@@ -37,8 +40,8 @@ class Tile:
         self.slide = open_slide(slide_loc)
         self.dz = DeepZoomGenerator(self.slide, size, 0)
 
-        file_name = os.path.basename(slide_loc).split(".")[0]
-        self.slide_output_dir = os.path.join(output_dir, file_name)
+        self.file_name = os.path.basename(slide_loc).split(".")[0]
+        self.slide_output_dir = os.path.join(output_dir, self.file_name)
         self.tiles = {}
         self.reject_tiles = {}
 
@@ -46,17 +49,18 @@ class Tile:
 
         if os.path.exists(self.slide_output_dir):
             if not ignore_repeat:
-                print(f"{file_name} is already in the dataset. Do you wish to overwrite these tiles? [y/n]")
+                print(f"{self.file_name} is already in the dataset. Do you wish to overwrite these tiles? [y/n]")
                 proceed = input()
             if proceed == "y":
                 shutil.rmtree(self.slide_output_dir)
 
         if proceed == "y":
             os.makedirs(self.slide_output_dir)
-            self.get_tiles()
+            self._save_tiles()
+            print()
 
 
-    def get_tiles(self):
+    def _save_tiles(self):
         """
             This function will save all the relevant tiles for a given zoom level.
 
@@ -67,100 +71,95 @@ class Tile:
             Returns:
                 - None
         """
-        maxZoom = float(self.slide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]) / self.slide.level_downsamples[0]
+        max_zoom = float(self.slide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]) / self.slide.level_downsamples[0]
 
         for level in range(1, self.dz.level_count):
-            level_tiles = {}
-            level_reject_tiles = {}
-            thisMag = maxZoom/pow(2,self.dz.level_count-(level+1))
-
+            this_mag = max_zoom/pow(2,self.dz.level_count-(level+1))
             cols, rows = self.dz.level_tiles[level]
+
+            tile_dir = os.path.join(self.slide_output_dir, str(this_mag))
+            if not os.path.exists(tile_dir):
+                os.makedirs(tile_dir)
+
+            print(f"\rCreating {self.file_name} | zoom: x{this_mag:.2f}", end="")
             for row in range(rows):
                 for col in range(cols):
                     tile = self.dz.get_tile(level, (col, row))
 
-                    tile_background = self.get_background_percentage(tile)
-
-                    if tile_background < self.background:
-                        level_tiles[(col, row)] = tile
+                    if self._keep_tile(tile, self.size, 1 - self.background):
                         if self.normalizer is not None:
                             self.normalizer.fit(tile)
+                        
+                        tile_name = os.path.join(tile_dir, f"{col}_{row}")
+                        tile.save(f"{tile_name}.jpeg")
 
                     else:
                         if np.random.uniform() < self.reject_rate:
-                            level_reject_tiles[(col, row)] = tile
+                            reject_dir = os.path.join(tile_dir, "rejected")
+                            if not os.path.exists(reject_dir):
+                                os.makedirs(reject_dir)
 
-            self.tiles[thisMag] = level_tiles
-            self.reject_tiles[thisMag] = level_reject_tiles
-
-
-    def save(self, normalizer=None):
-        for thisMag, level_tiles in self.tiles.items():
-            tile_dir = os.path.join(self.slide_output_dir, str(thisMag))
-
-            if not os.path.exists(tile_dir):
-                os.makedirs(tile_dir)
-
-            for (col, row), tile in level_tiles.items():
-                tile_name = os.path.join(tile_dir, f"{col}_{row}")
-                if normalizer is not None:
-                    tile = normalizer.normalize(tile)
-                tile.save(f"{tile_name}.jpeg")
-
-        for thisMag, level_reject_tiles in self.reject_tiles.items():
-            tile_dir = os.path.join(self.slide_output_dir, str(thisMag))
-
-            reject_dir = os.path.join(tile_dir, "rejected")
-            if not os.path.exists(reject_dir):
-                os.makedirs(reject_dir)
-
-            for (col, row), reject_tile in level_reject_tiles.items():
-                reject_tile_name = os.path.join(reject_dir, f"{col}_{row}")
-                # if normalizer is not None:
-                #     reject_tile = normalizer.normalize(reject_tile)
-                reject_tile.save(f"{reject_tile_name}.jpeg")
+                            reject_tile_name = os.path.join(reject_dir, f"{col}_{row}")
+                            tile.save(f"{reject_tile_name}.jpeg")
 
 
-    def get_background_percentage(self, tile):
+    def _keep_tile(self, tile, tile_size, tissue_threshold):
         """
-            This function calculates the amount of white background in a given tile.
+        Determine if a tile should be kept.
+        
+        Args:
+            - tile: A PIL Image object of the slide tile
+            - tile_size: The width and height of a square tile to be generated.
+            - tissue_threshold: Tissue percentage threshold.
+        Returns:
+            A Boolean indicating whether or not a tile should be kept.
 
-            Args:
-                - tile: A PIL Image object of the slide tile
+        Check 0:
+            The tile must be the specified height and width
 
-            Returns:
-                - Float: The precentage of background in the tile
+        Check 1:
+            - Convert image to greyscale with 0 = background, 1 = tissue
+            - Canny edge detect
+            - Binary dilation followed by erosion
+            - Binary dilation to fill gaps in tissue
+            - Calcualte tissue precentage and test against given minumum tissue value
+
+        Check 2:
+            - Convert tile to optical density space
+            - Threshold values
+            - Binary dilation followed by erosion
+            - Binary dilation to fill gaps in tissue
+            - Calcualte tissue precentage and test against given minumum tissue value
         """
 
-        #convert tile to strict black and white (not greyscale)    
-        grey = tile.convert("L")
-        bw = grey.point(lambda x: 0 if x< self.threshold else 255)
+        tile = np.array(tile)
 
-        bw_arr = np.array(bw)
-        foreground_cells = np.count_nonzero(bw_arr == 0)
-        background_cells = np.count_nonzero(bw_arr == 255)
-        return background_cells/(foreground_cells+background_cells)
+        if tile.shape[0:2] == (tile_size, tile_size):
+            tile_orig = tile
+            tile = rgb2gray(tile)
+            tile = 1 - tile
+            tile = canny(tile)
+            tile = binary_closing(tile, disk(10))
+            tile = binary_dilation(tile, disk(10))
+            tile = binary_fill_holes(tile)
 
-    def normalize_tile(self, tile):
-        """
-            This function normalizes the staining of H&E histology slides using the macenko method.
+            percentage_1 = tile.mean()
+            check_1 = percentage_1 >= tissue_threshold
 
-            Args:
-                - tile: A PIL Image object of the slide tile
             
-            Returns:
-                - A PIL Image object of the normalized slide tile
-        """
-        tile_array = np.array(tile)
-        tile_array = staintools.LuminosityStandardizer.standardize(tile_array)
+            tile = tile_orig.astype(np.float64)
+            tile = -np.log((tile+1)/240) #convert to optical density
+            beta = 0.15
+            tile = np.min(tile, axis=2) >= beta
+            tile = binary_closing(tile, disk(2))
+            tile = binary_dilation(tile, disk(2))
+            tile = binary_fill_holes(tile)
+            percentage_2 = tile.mean()
+            check_2 = percentage_2 >= tissue_threshold
 
-        normalizer = staintools.StainNormalizer(method='macenko')
-        normalizer.fit(tile_array)
-        normalized_tile = normalizer.transform(tile_array)
-
-        return Image.fromarray(normalized_tile)
-
-
+            return check_1 and check_2
+        else:
+            return False
 
 if __name__ == "__main__":
     parser = OptionParser(usage='Usage: %prog <slide> <output_folder> [options]')
@@ -190,4 +189,4 @@ if __name__ == "__main__":
         reject_rate=opts.reject,
         ignore_repeat=opts.ignore_repeat
     )
-    tile.save()
+    # tile.save()
