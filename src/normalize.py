@@ -70,7 +70,7 @@ class Normalizer:
                     self.normalize_dir(new_path)
 
 if __name__ == "__main__":
-    parser = OptionParser(usage='Usage: %prog <slide> <output_folder> [options]')
+    parser = OptionParser(usage='Usage: %prog <tile_dir>')
     (opts, args) = parser.parse_args()
 
     try:

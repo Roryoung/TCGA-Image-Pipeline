@@ -19,7 +19,8 @@ class Tile:
         This class will save tiles of the given H&E stained slide at different zoom levels.
     """
 
-    def __init__(self, slide_loc, output_dir, normalizer=None, background=0.2, threshold=225, size=255, reject_rate=0.1, ignore_repeat=False):
+    def __init__(self, slide_loc, output_dir, normalizer=None, background=0.2, 
+                threshold=225, size=255, reject_rate=0.1, ignore_repeat=False):
         """
             Args:
                 - slide_loc: A .svs file of the H&E stained slides
@@ -163,12 +164,11 @@ class Tile:
 
 if __name__ == "__main__":
     parser = OptionParser(usage='Usage: %prog <slide> <output_folder> [options]')
-    parser.add_option('-o', '--output', metavar='NAME', dest='output_dir', help='base name of output file')
-    parser.add_option('-b', '--background', metavar='PIXELS', dest='background', type='float', default=0.2, help='Percentage of background allowed [0.2]')
-    parser.add_option('-t', '--threshold', metavar='', dest='threshold', type='int', default=225, help='Backgorund threshold [225]')
-    parser.add_option('-s', '--size', metavar='PIXELS', dest='tile_size', type='int', default=255, help='tile size [255]')
-    parser.add_option('-r', '--reject', dest='reject', type='float', default=0.1, help='Precentage of rejected background tiles to save [0.1]')
-    parser.add_option('-i', '--ignore_repeat', dest='ignore_repeat', action="store_true", help='Automatically overwrte repeated files in the dataset [False]')
+    parser.add_option('-b', '--background', dest='background', type='float', default=0.2, help='Percentage of background allowed, default=0.2')
+    parser.add_option('-t', '--threshold', dest='threshold', type='int', default=225, help='Backgorund threshold, default=225')
+    parser.add_option('-s', '--size', dest='tile_size', type='int', default=255, help='Size of the output tiles, default=255')
+    parser.add_option('-r', '--reject', dest='reject', type='float', default=0.1, help='Precentage of rejected background tiles to save, default=0.1')
+    parser.add_option('-i', '--ignore_repeat', dest='ignore_repeat', action="store_true", help='Automatically overwrte repeated files in the dataset, default=False')
 
     (opts, args) = parser.parse_args()
 
@@ -177,16 +177,17 @@ if __name__ == "__main__":
     except IndexError:
         parser.error('Missing slide argument')
 
-    if opts.output_dir is None:
-        parser.error("Missing output directory argument")
+    try:
+        output_dir = args[1]
+    except IndexError:
+        parser.error('Missing output directory argument')
 
     tile = Tile(
         slide_loc=slide_path,
-        output_dir=opts.output_dir,
+        output_dir=output_dir,
         background=opts.background,
         size=opts.tile_size,
         threshold=opts.threshold,
         reject_rate=opts.reject,
         ignore_repeat=opts.ignore_repeat
     )
-    # tile.save()
