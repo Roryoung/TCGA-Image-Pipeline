@@ -1,4 +1,5 @@
 numpy
-openslide
-staintools
-PIL
+openslide-python
+Pillow
+scipy
+scikit-image
