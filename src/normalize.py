@@ -1,3 +1,6 @@
+import os
+from optparse import OptionParser
+
 import numpy as np
 from skimage import color
 from PIL import Image
@@ -14,6 +17,18 @@ class Normalizer:
 
         self.means = np.append(self.means, [[np.mean(lab[:,:,i]) for i in range(3)]], axis=0)
         self.stds = np.append(self.stds, [[np.std(lab[:,:,i]) for i in range(3)]], axis=0)
+
+
+    def fit_dir(self, current_path):
+        for filename in os.listdir(current_path):
+            if filename != "rejected":
+                new_path = os.path.join(current_path, filename)
+                if os.path.isfile(new_path):
+                    tile = Image.open(new_path)
+                    tile = self.fit(tile)
+                else:
+                    self.fit_dir(new_path)
+
 
 
     def normalize(self, tile):
@@ -41,3 +56,28 @@ class Normalizer:
                 lab[:,:,i] = tmp
 
         return Image.fromarray((color.lab2rgb(lab)*255).astype(np.uint8))
+
+
+    def normalize_dir(self, current_path):
+        for filename in os.listdir(current_path):
+            if filename != "rejected":
+                new_path = os.path.join(current_path, filename)
+                if os.path.isfile(new_path):
+                    tile = Image.open(new_path)
+                    tile = self.normalize(tile)
+                    tile.save(new_path)
+                else:
+                    self.normalize_dir(new_path)
+
+if __name__ == "__main__":
+    parser = OptionParser(usage='Usage: %prog <slide> <output_folder> [options]')
+    (opts, args) = parser.parse_args()
+
+    try:
+        tile_dir = args[0]
+    except IndexError:
+        parser.error('Missing tile directory argument')
+
+    normalizer = Normalizer()
+    normalizer.fit_dir(tile_dir)
+    normalizer.normalize_dir(tile_dir)

@@ -22,6 +22,7 @@ def build_dataset(slide_dir, output_dir, background=0.2, threshold=225, size=255
             ignore_repeat=opts.ignore_repeat
         )
 
+    # normalizer.normalize_dir(output_dir)
 
 if __name__ == "__main__":
     parser = OptionParser(usage='Usage: %prog <slide> <output_folder> [options]')
