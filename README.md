@@ -17,8 +17,6 @@
     -h, --help            show this help message and exit
     -b BACKGROUND, --background=BACKGROUND
                             Percentage of background allowed, default=0.2
-    -t THRESHOLD, --threshold=THRESHOLD
-                            Backgorund threshold, default=225
     -s TILE_SIZE, --size=TILE_SIZE
                             Size of the output tiles, default=255
     -r REJECT, --reject=REJECT
@@ -40,8 +38,6 @@
     -h, --help            show this help message and exit
     -b BACKGROUND, --background=BACKGROUND
                             Percentage of background allowed, defualt=0.2
-    -t THRESHOLD, --threshold=THRESHOLD
-                            Backgorund threshold, defualt=225
     -s TILE_SIZE, --size=TILE_SIZE
                             tile size, defualt=255
     -r REJECT, --reject=REJECT

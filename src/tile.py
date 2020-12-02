@@ -19,22 +19,20 @@ class Tile:
         This class will save tiles of the given H&E stained slide at different zoom levels.
     """
 
-    def __init__(self, slide_loc, output_dir, normalizer=None, background=0.2, 
-                threshold=225, size=255, reject_rate=0.1, ignore_repeat=False):
+    def __init__(self, slide_loc, output_dir, normalizer=None, background=0.2,
+                 size=255, reject_rate=0.1, ignore_repeat=False):
         """
             Args:
                 - slide_loc: A .svs file of the H&E stained slides
                 - output_dir: The location where the tiles will be saved
                 - normalizer: A tile normalizer object
                 - background: The maximum precentage of background allowed for a saved tile 
-                - threshold: The maximum greyscale value for a pixel to be considered background
                 - size: The width and hight of the tiles at each zoom level
                 - reject_rate: The precentage of rejected tiles to save
                 - ignore_repeat: Automatically overwrte repeated files in the dataset
         """
         self.normalizer = normalizer
         self.background = background
-        self.threshold = threshold
         self.size = size
         self.reject_rate = reject_rate
 
@@ -165,7 +163,6 @@ class Tile:
 if __name__ == "__main__":
     parser = OptionParser(usage='Usage: %prog <slide> <output_folder> [options]')
     parser.add_option('-b', '--background', dest='background', type='float', default=0.2, help='Percentage of background allowed, default=0.2')
-    parser.add_option('-t', '--threshold', dest='threshold', type='int', default=225, help='Backgorund threshold, default=225')
     parser.add_option('-s', '--size', dest='tile_size', type='int', default=255, help='Size of the output tiles, default=255')
     parser.add_option('-r', '--reject', dest='reject', type='float', default=0.1, help='Precentage of rejected background tiles to save, default=0.1')
     parser.add_option('-i', '--ignore_repeat', dest='ignore_repeat', action="store_true", help='Automatically overwrte repeated files in the dataset, default=False')
@@ -187,7 +184,6 @@ if __name__ == "__main__":
         output_dir=output_dir,
         background=opts.background,
         size=opts.tile_size,
-        threshold=opts.threshold,
         reject_rate=opts.reject,
         ignore_repeat=opts.ignore_repeat
     )
