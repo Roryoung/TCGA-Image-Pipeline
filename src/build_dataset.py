@@ -1,19 +1,42 @@
 import os
 from optparse import OptionParser
 import numpy as np
+from random import shuffle
 
 from tile import Tile
 from normalize import Normalizer
+from labeling_util import *
 
 def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0.1, ignore_repeat=False):
+    data = get_projects_info(["TCGA-DLBC"])
+
+    all_cases = list(data['case to images'].keys())
+    shuffle(all_cases)
+
+    #split to train and val+test
+    train_len = int(0.8*len(all_cases))
+    train_set = all_cases[:train_len]
+    all_cases = all_cases[train_len:]
+
+    #split val+test into val and test
+    val_len = int(0.5*len(all_cases))
+    val_set = all_cases[:val_len]
+    test_set = all_cases[val_len:]
+
+    train_labels, train_images = get_image_labels(train_set, data)
+    val_labels, val_images = get_image_labels(val_set, data)
+    test_labels, test_images = get_image_labels(test_set, data)
+
+    # train_images = ["TCGA-44-7671-01A-01-BS1.914604a2-de9c-404d-9fa5-23fbd0b76da3.svs"]
+
     normalizer = Normalizer()
-    
     slide_tiles = []
-    for filename in os.listdir(slide_dir):
-        slide_path = os.path.join(slide_dir, filename)
+    for filename in train_images:
+        slide_path = os.path.join(slide_dir, "train", filename)
+        download_image(filename, os.path.join(slide_dir, "train"))
         tile = Tile(
             slide_loc=slide_path,
-            output_dir=output_dir,
+            output_dir=os.path.join(output_dir, "train"),
             normalizer=normalizer,
             background=background,
             size=size,

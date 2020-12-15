@@ -1,5 +1,5 @@
 numpy
 openslide-python
-Pillow
+Pillow==8.0.1
 scipy
 scikit-image

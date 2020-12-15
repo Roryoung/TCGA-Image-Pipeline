@@ -131,3 +131,6 @@ dmypy.json
 #Images
 **/*.jpeg
 **/*.svs
+
+#Manifest files
+manifest/
