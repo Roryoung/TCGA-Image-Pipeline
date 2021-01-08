@@ -3,3 +3,4 @@ openslide-python
 Pillow==8.0.1
 scipy
 scikit-image
+h5py

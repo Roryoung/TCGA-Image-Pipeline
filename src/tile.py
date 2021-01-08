@@ -39,7 +39,7 @@ class Tile:
         self.slide = open_slide(slide_loc)
         self.dz = DeepZoomGenerator(self.slide, size, 0)
 
-        self.file_name = os.path.basename(slide_loc).split(".")[0]
+        self.file_name = ".".join(os.path.basename(slide_loc).split(".")[:-1])
         self.slide_output_dir = os.path.join(output_dir, self.file_name)
         self.tiles = {}
         self.reject_tiles = {}
@@ -93,7 +93,7 @@ class Tile:
                         tile.save(f"{tile_name}.jpeg")
 
                     else:
-                        if np.random.uniform() < self.reject_rate:
+                        if np.random.uniform() < self.reject_rate and tile.size == (self.size, self.size):
                             reject_dir = os.path.join(tile_dir, "rejected")
                             if not os.path.exists(reject_dir):
                                 os.makedirs(reject_dir)

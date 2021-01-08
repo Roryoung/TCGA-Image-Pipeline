@@ -134,3 +134,5 @@ dmypy.json
 
 #Manifest files
 manifest/
+data/
+*.h5

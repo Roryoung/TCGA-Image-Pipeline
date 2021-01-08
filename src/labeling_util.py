@@ -321,16 +321,3 @@ def download_image(file_name,path=""):
             output_file.write(response.content)
     else:
         print("{} already exists, not downloading anything".format(file_path))
-
-def get_image_labels(case_set, data):
-    set_images = list(map( lambda x : data['case to images'][x], case_set))
-    #flatten
-    set_images = [img for case in set_images for img in case]
-    
-    #get sample ids to match with labels
-    sample_ids = list(map( lambda x : data['image to sample'][x], set_images))
-    set_labels = pd.DataFrame()
-    for sample in sample_ids:
-        set_labels = set_labels.append(data['labels'][data['labels']['sample.barcode']==sample])
-
-    return set_labels, set_images
