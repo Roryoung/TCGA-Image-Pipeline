@@ -13,23 +13,31 @@ class Normalizer:
         self.size = np.empty((0, 3))
 
 
-    def fit(self, tile_array):
+    def fit_tile(self, tile_array):
         lab = color.rgb2lab(tile_array)
 
         self.means = np.append(self.means, [[np.mean(lab[:,:,i]) for i in range(3)]], axis=0)
         self.stds = np.append(self.stds, [[np.std(lab[:,:,i]) for i in range(3)]], axis=0)
         self.size = np.append(self.size, [[lab[:, :, i].shape[0] * lab[:, :, i].shape[1] for i in range(3)]], axis=0)
 
+    
+    def fit_h5_set(self, h5_set):
+        for patient_image in h5_set.values():
+            print(f"\rFitting {patient_image.name[1:]}", end="")
+            for zoom in patient_image.values():
+                num_images = zoom["images"].shape[0]
+                for i in range(num_images):
+                    self.fit_tile(zoom["images"][i]) 
+
 
     def fit_dir(self, current_path):
+        print("Fitting directory...")
         for filename in os.listdir(current_path):
-            if filename != "rejected":
-                new_path = os.path.join(current_path, filename)
-                if os.path.isfile(new_path):
-                    tile = Image.open(new_path)
-                    tile = self.fit(tile)
-                else:
-                    self.fit_dir(new_path)
+            if filename.endswith(".h5"):
+                set_hdf5_path = os.path.join(current_path, filename)
+                set_hdf5_file = h5py.File(set_hdf5_path, 'r+')
+
+                self.fit_h5_set(set_hdf5_file)
 
 
     def normalize_tile(self, tile):
@@ -97,5 +105,5 @@ if __name__ == "__main__":
         parser.error('Missing tile directory argument')
 
     normalizer = Normalizer()
-    # normalizer.fit_dir(tile_dir)
+    normalizer.fit_dir(tile_dir)
     normalizer.normalize_dir(tile_dir)
