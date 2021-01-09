@@ -1,6 +1,7 @@
 import os
 from optparse import OptionParser
 
+import h5py
 import numpy as np
 from skimage import color
 from PIL import Image
@@ -12,8 +13,7 @@ class Normalizer:
         self.size = np.empty((0, 3))
 
 
-    def fit(self, tile):
-        tile_array = np.array(tile)
+    def fit(self, tile_array):
         lab = color.rgb2lab(tile_array)
 
         self.means = np.append(self.means, [[np.mean(lab[:,:,i]) for i in range(3)]], axis=0)
@@ -32,12 +32,10 @@ class Normalizer:
                     self.fit_dir(new_path)
 
 
-
-    def normalize(self, tile):
+    def normalize_tile(self, tile):
         """
         sig = sum[ (n_i - 1)sig_i + n_i(y_bar_i - y_bar)^2 ]/ sum[ n_i ]-1
         """
-        
         total_n = np.sum(self.size, axis=0)
         weighted_avg = np.sum(np.multiply(self.size, self.means), axis=0)/ total_n
         
@@ -47,8 +45,8 @@ class Normalizer:
 
         mu = np.mean(self.means, axis=0)
 
-        tile_array = np.array(tile)
-        lab = color.rgb2lab(tile_array)
+        # print(tile.shape)
+        lab = color.rgb2lab(tile)
 
         t_mean = [0,0,0]
         t_std  = [1,1,1]
@@ -59,27 +57,35 @@ class Normalizer:
             t_std[i]  = np.std(lab[:,:,i])
             tmp = ( (lab[:,:,i] - t_mean[i]) * (sig[i] / t_std[i]) ) + mu[i]
             if i == 0:
-                tmp[tmp<0] = 0
-                tmp[tmp>100] = 100
+                tmp[tmp<=0] = 0
+                tmp[tmp>=100] = 100
                 lab[:,:,i] = tmp
             else:
-                tmp[tmp<-127] = -127
-                tmp[tmp>127] = 127
+                tmp[tmp<=-127] = -127
+                tmp[tmp>=127] = 127
                 lab[:,:,i] = tmp
 
-        return Image.fromarray((color.lab2rgb(lab)*255).astype(np.uint8))
+        return (color.lab2rgb(lab)*255).astype(np.uint8)
+
+
+    def normalize_h5_set(self, h5_set):
+        for patient_image in h5_set.values():
+            print(f"\rNormalizing {patient_image.name[1:]}", end="")
+            for zoom in patient_image.values():
+                num_images = zoom["images"].shape[0]
+                for i in range(num_images):
+                    zoom["images"][i] = self.normalize_tile(zoom["images"][i])       
 
 
     def normalize_dir(self, current_path):
+        print("Starting normalization...")
         for filename in os.listdir(current_path):
-            if filename != "rejected":
-                new_path = os.path.join(current_path, filename)
-                if os.path.isfile(new_path):
-                    tile = Image.open(new_path)
-                    tile = self.normalize(tile)
-                    tile.save(new_path)
-                else:
-                    self.normalize_dir(new_path)
+            if filename.endswith(".h5"):
+                set_hdf5_path = os.path.join(current_path, filename)
+                set_hdf5_file = h5py.File(set_hdf5_path, 'r+')
+
+                self.normalize_h5_set(set_hdf5_file)
+
 
 if __name__ == "__main__":
     parser = OptionParser(usage='Usage: %prog <tile_dir>')
@@ -91,5 +97,5 @@ if __name__ == "__main__":
         parser.error('Missing tile directory argument')
 
     normalizer = Normalizer()
-    normalizer.fit_dir(tile_dir)
+    # normalizer.fit_dir(tile_dir)
     normalizer.normalize_dir(tile_dir)

@@ -2,12 +2,12 @@ import os
 from optparse import OptionParser
 import numpy as np
 from random import shuffle
+import h5py
 
 from tile import Tile
 from normalize import Normalizer
 from labeling_util import *
 from get_set_data import split_to_sets
-from save import h5_output
 
 def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0.1, ignore_repeat=False):
     data = get_projects_info(["TCGA-DLBC"])
@@ -39,6 +39,10 @@ def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0
     # val_images = ["TCGA-FF-8041-01A-01-TS1.b8b69ce3-a325-4864-a5b0-43c450347bc9.svs"]
     # test_images = ["TCGA-G8-6326-01A-01-TS1.e0eb24da-6293-4ecb-8345-b70149c84d1e.svs"]
 
+    # # # train_images = []
+    # # val_images = []
+    # # test_images = []
+
     # dataset = [
     #     (train_images, "train"),
     #     (val_images, "val"),
@@ -47,22 +51,27 @@ def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0
 
     normalizer = Normalizer()
     for images, label in dataset:
+        set_path = os.path.join(output_dir, label)
+
+        set_hdf5_path = os.path.join(output_dir, f"{label}.h5")
+        set_hdf5_file = h5py.File(set_hdf5_path, 'a')
+
         for filename in images:
             download_image(filename, slide_dir)
-
-            slide_path = os.path.join(slide_dir, filename)
-            tile = Tile(
-                slide_loc=slide_path,
-                output_dir=os.path.join(output_dir, label),
+            
+            Tile(
+                slide_loc=os.path.join(slide_dir, filename),
+                set_hdf5_file=set_hdf5_file,
                 normalizer=normalizer,
                 background=background,
                 size=size,
                 reject_rate=reject_rate,
                 ignore_repeat=ignore_repeat
             )
+        
+        set_hdf5_file.close()
 
     normalizer.normalize_dir(output_dir)
-    h5_output(output_dir)
 
 
 if __name__ == "__main__":
