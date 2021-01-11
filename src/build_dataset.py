@@ -9,7 +9,7 @@ from normalize import Normalizer
 from labeling_util import *
 from get_set_data import split_to_sets, load_set_data
 
-def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0.1, ignore_repeat=False):
+def build_dataset(slide_dir, output_dir, projects, background=0.2, size=255, reject_rate=0.1, ignore_repeat=False):
     proceed = None
     train_path = os.path.join(output_dir, "train.h5")
     val_path = os.path.join(output_dir, "val.h5")
@@ -40,7 +40,7 @@ def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0
         test_data = load_set_data(test_path)
 
     elif proceed == "R" or proceed == None:
-        data = get_projects_info(["TCGA-DLBC"])
+        data = get_projects_info(projects)
 
         all_cases = list(data['case to images'].keys())
         shuffle(all_cases)
@@ -102,9 +102,12 @@ def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0
             
         normalizer.normalize_dir(output_dir)
 
+def list_callback(option, opt, value, parser):
+  setattr(parser.values, option.dest, value.split(','))
 
 if __name__ == "__main__":
-    parser = OptionParser(usage='Usage: %prog <slide_folder> <output_folder> [options]')
+    parser = OptionParser(usage='Usage: %prog <slide_folder> <output_folder> -p <projects> [options]')
+    parser.add_option('-p', '--projects', dest="projects", type='string', action='callback', help="List of TCGA cases e.g. TCGA-LUAD,TCGA-BRCA", callback=list_callback)
     parser.add_option('-b', '--background', dest='background', type='float', default=0.2, help='Percentage of background allowed, defualt=0.2')
     parser.add_option('-s', '--size', dest='tile_size', type='int', default=255, help='tile size, defualt=255')
     parser.add_option('-r', '--reject', dest='reject', type='float', default=0.1, help='Precentage of rejected background tiles to save, defualt=0.1')
@@ -115,16 +118,20 @@ if __name__ == "__main__":
     try:
         slide_dir = args[0]
     except IndexError:
-        parser.error('Missing slide image directory argument')
+        parser.error('Missing slide image directory argument.')
 
     try:
         output_dir = args[1]
     except IndexError:
-        parser.error('Missing output directory argument')
+        parser.error('Missing output directory argument.')
+
+    if opts.projects is None:
+        raise parser.error("Missing list of projects to download.")
 
     build_dataset(
         slide_dir=slide_dir,
         output_dir=output_dir,
+        projects=opts.projects,
         background=opts.background,
         size=opts.tile_size,
         reject_rate=opts.reject,
