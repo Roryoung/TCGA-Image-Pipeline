@@ -1,18 +1,26 @@
 import os
-import json
-from json import JSONEncoder
 
-import numpy as np
+import h5py
+
+def recursive_save_to_h5(h5_file, path, item):
+    if isinstance(item, dict):
+        for key, value in item.items():
+            recursive_save_to_h5(h5_file, f"{path}{key}/", value)
+    elif isinstance(item, list):
+        if len(item) > 0:
+            for key, value in enumerate(item):
+                recursive_save_to_h5(h5_file, f"{path}{key}/", value)
+        else:
+            h5_file.create_group(f"{path}/")
+    elif item is None:
+        h5_file[path] = h5py.Empty("f")
+    else:
+        h5_file[path] = item
+
+    h5_file[path].attrs["type"] = type(item).__name__
 
 
-class NumpyArrayEncoder(JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.int64):
-            return int(obj)
-        return JSONEncoder.default(self, obj)
-
-
-def get_data_dict(case_set, data, output):
+def get_data_dict(case_set, data, h5_file_name):
     set_data_dict = {}
     for case in case_set:
         for key, value in data["data dict"].items():
@@ -22,70 +30,67 @@ def get_data_dict(case_set, data, output):
 
                 set_data_dict[key][case] = value[case]
 
-    with open(os.path.join(output, "data_dict.json"), "w") as fp:
-        json.dump(set_data_dict, fp, cls=NumpyArrayEncoder)
+    with h5py.File(h5_file_name, "a") as h5_file:
+        recursive_save_to_h5(h5_file, "data_dict/", set_data_dict)
 
     return set_data_dict
 
 
-def get_case_to_images(case_set, data, output=None):
+def get_case_to_images(case_set, data, h5_file_name=None):
     set_case_to_images = {}
     for case in case_set:
         for key, value in data["case to images"].items():
             if case == key:
                 set_case_to_images[key] = value
-
-    if output is not None:
-        with open(os.path.join(output, "case_to_images.json"), "w") as fp:
-            json.dump(set_case_to_images, fp, cls=NumpyArrayEncoder)
+    
+    if h5_file_name is not None:
+        with h5py.File(h5_file_name, "a") as h5_file:
+            recursive_save_to_h5(h5_file, "case_to_images/", set_case_to_images)
 
     return set_case_to_images
 
 
-def get_image_to_sample(case_set, data, output=None):
+def get_image_to_sample(case_set, data, h5_file_name=None):
     set_image_to_sample = {}
     for key, value in get_case_to_images(case_set, data).items():
         for image in value:
             set_image_to_sample[image] = key
     
-    if output is not None:
-        with open(os.path.join(output, "image_to_sample.json"), "w") as fp:
-            json.dump(set_image_to_sample, fp, cls=NumpyArrayEncoder)
+    if h5_file_name is not None:
+        with h5py.File(h5_file_name, "a") as h5_file:
+            recursive_save_to_h5(h5_file, "image_to_sample/", set_image_to_sample)
 
     return set_image_to_sample
         
 
-def get_mutational_signatures(case_set, data, output):
+def get_mutational_signatures(case_set, data, h5_file_name):
     mutational_signatures = data["mutational signatures"][data["mutational signatures"]["case_id"].isin(case_set)]
-    mutational_signatures.to_csv(os.path.join(output, "mutational_signatures.csv"))
+    mutational_signatures.to_hdf(h5_file_name, "/mutational_signatures", format="table")
 
     return mutational_signatures
 
 
-def get_labels(case_set, data, output):
+def get_labels(case_set, data, h5_file_name):
     sample_ids = list(map( lambda x : data['image to sample'][x], list(get_image_to_sample(case_set, data).keys())))
     labels = data['labels'][data['labels']['sample.barcode'].isin(sample_ids)]
-    labels.to_csv(os.path.join(output, "labels.csv"))
+    labels.to_hdf(h5_file_name, "/labels", format="table")
 
     return labels
 
 
-def get_hugo_symbols(case_set, data, output):
+def get_hugo_symbols(case_set, data, h5_file_name):
     hugo_symbols = data["hugo symbols"][data["hugo symbols"]["case_barcode"].isin(case_set)]
-    hugo_symbols.to_csv(os.path.join(output, "hugo_symbols.csv"))
+    hugo_symbols.to_hdf(h5_file_name, "/hugo_symbols", format="table")
 
     return hugo_symbols
 
 
-def split_to_sets(case_set, data, output):
-    if not os.path.exists(output):
-        os.makedirs(output)
-
+def split_to_sets(case_set, data, h5_file_name):
     return {
-        "data dict": get_data_dict(case_set, data, output),
-        "image to sample": get_image_to_sample(case_set, data, output),
-        "case to images":  get_case_to_images(case_set, data, output),
-        "labels": get_labels(case_set, data, output),
-        "mutational signatures": get_mutational_signatures(case_set, data, output),
-        "hugo symbols": get_hugo_symbols(case_set, data, output)
+        "data dict": get_data_dict(case_set, data, h5_file_name),
+        "image to sample": get_image_to_sample(case_set, data, h5_file_name),
+        "case to images":  get_case_to_images(case_set, data, h5_file_name),
+        "labels": get_labels(case_set, data, h5_file_name),
+        "mutational signatures": get_mutational_signatures(case_set, data, h5_file_name),
+        "hugo symbols": get_hugo_symbols(case_set, data, h5_file_name)
     }

@@ -69,9 +69,8 @@ class Tile:
     def _create_image_dataset(self, hdf5_file, name, size, n_ch=3):
         img_db_shape = (0, size, size, n_ch)
         max_img_db_shape = (None, size, size, n_ch)
-        dt = np.float32
 
-        return hdf5_file.create_dataset(name=name, shape=img_db_shape, maxshape=max_img_db_shape, dtype=np.float32)
+        return hdf5_file.create_dataset(name=name, shape=img_db_shape, maxshape=max_img_db_shape, dtype=np.uint8)
 
 
     def _save_tiles(self):
@@ -107,7 +106,7 @@ class Tile:
 
                     if self._keep_tile(tile, self.size, 1 - self.background):
                         if self.normalizer is not None:
-                            self.normalizer.fit(tile)
+                            self.normalizer.fit_tile(tile)
                         
                         max_index = img_storage.shape[0] + 1
                         img_storage.resize(max_index, axis=0)

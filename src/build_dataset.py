@@ -10,6 +10,10 @@ from labeling_util import *
 from get_set_data import split_to_sets
 
 def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0.1, ignore_repeat=False):
+    train_h5 = h5py.File(os.path.join(output_dir, "train.h5"), 'a')
+    val_h5 = h5py.File(os.path.join(output_dir, "val.h5"), 'a')
+    test_h5 = h5py.File(os.path.join(output_dir, "test.h5"), 'a')
+
     data = get_projects_info(["TCGA-DLBC"])
 
     all_cases = list(data['case to images'].keys())
@@ -25,9 +29,9 @@ def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0
     val_set = all_cases[:val_len]
     test_set = all_cases[val_len:]
 
-    train_data = split_to_sets(train_set, data, os.path.join("data", "train"))
-    val_data = split_to_sets(val_set, data, os.path.join("data", "val"))
-    test_data = split_to_sets(test_set, data, os.path.join("data", "test"))
+    train_data = split_to_sets(train_set, data, os.path.join(output_dir, "train.h5"))
+    val_data = split_to_sets(val_set, data, os.path.join(output_dir, "val.h5"))
+    test_data = split_to_sets(test_set, data, os.path.join(output_dir, "test.h5"))
 
     dataset = [
         (list(train_data["image to sample"].keys()), "train"),
@@ -55,13 +59,14 @@ def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0
 
         set_hdf5_path = os.path.join(output_dir, f"{label}.h5")
         set_hdf5_file = h5py.File(set_hdf5_path, 'a')
+        image_h5_file = set_hdf5_file.create_group("images")
 
         for filename in images:
             download_image(filename, slide_dir)
             
             Tile(
                 slide_loc=os.path.join(slide_dir, filename),
-                set_hdf5_file=set_hdf5_file,
+                set_hdf5_file=image_h5_file,
                 normalizer=normalizer,
                 background=background,
                 size=size,
