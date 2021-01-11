@@ -7,76 +7,100 @@ import h5py
 from tile import Tile
 from normalize import Normalizer
 from labeling_util import *
-from get_set_data import split_to_sets
+from get_set_data import split_to_sets, load_set_data
 
 def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0.1, ignore_repeat=False):
-    train_h5 = h5py.File(os.path.join(output_dir, "train.h5"), 'a')
-    val_h5 = h5py.File(os.path.join(output_dir, "val.h5"), 'a')
-    test_h5 = h5py.File(os.path.join(output_dir, "test.h5"), 'a')
+    proceed = None
+    train_path = os.path.join(output_dir, "train.h5")
+    val_path = os.path.join(output_dir, "val.h5")
+    test_path = os.path.join(output_dir, "test.h5")
 
-    data = get_projects_info(["TCGA-DLBC"])
-
-    all_cases = list(data['case to images'].keys())
-    shuffle(all_cases)
-
-    #split to train and val+test
-    train_len = int(0.8*len(all_cases))
-    train_set = all_cases[:train_len]
-    all_cases = all_cases[train_len:]
-
-    #split val+test into val and test
-    val_len = int(0.5*len(all_cases))
-    val_set = all_cases[:val_len]
-    test_set = all_cases[val_len:]
-
-    train_data = split_to_sets(train_set, data, os.path.join(output_dir, "train.h5"))
-    val_data = split_to_sets(val_set, data, os.path.join(output_dir, "val.h5"))
-    test_data = split_to_sets(test_set, data, os.path.join(output_dir, "test.h5"))
-
-    dataset = [
-        (list(train_data["image to sample"].keys()), "train"),
-        (list(val_data["image to sample"].keys()), "val"),
-        (list(test_data["image to sample"].keys()), "test")
-    ]
-
-    # train_images = ["TCGA-44-7671-01A-01-BS1.914604a2-de9c-404d-9fa5-23fbd0b76da3.svs"]
-    # val_images = ["TCGA-FF-8041-01A-01-TS1.b8b69ce3-a325-4864-a5b0-43c450347bc9.svs"]
-    # test_images = ["TCGA-G8-6326-01A-01-TS1.e0eb24da-6293-4ecb-8345-b70149c84d1e.svs"]
-
-    # # # train_images = []
-    # # val_images = []
-    # # test_images = []
-
-    # dataset = [
-    #     (train_images, "train"),
-    #     (val_images, "val"),
-    #     (test_images, "test")
-    # ]
-
-    normalizer = Normalizer()
-    for images, label in dataset:
-        set_path = os.path.join(output_dir, label)
-
-        set_hdf5_path = os.path.join(output_dir, f"{label}.h5")
-        set_hdf5_file = h5py.File(set_hdf5_path, 'a')
-        image_h5_file = set_hdf5_file.create_group("images")
-
-        for filename in images:
-            download_image(filename, slide_dir)
-            
-            Tile(
-                slide_loc=os.path.join(slide_dir, filename),
-                set_hdf5_file=image_h5_file,
-                normalizer=normalizer,
-                background=background,
-                size=size,
-                reject_rate=reject_rate,
-                ignore_repeat=ignore_repeat
+    if (os.path.isfile(train_path) and os.path.isfile(val_path) and os.path.isfile(test_path)):
+        while not (proceed == "C" or proceed == "A" or proceed == "R" or proceed == "Q"):
+            print(
+                """A dataset already exists in this directory. Do you want to \n
+                    - Continue to build the datset [C] \n
+                    - Reset the dataset [R] \n
+                    - Quit [Q]
+                """
             )
-        
-        set_hdf5_file.close()
+            proceed = input().upper()
+            if proceed == "R":
+                os.remove(train_path)
+                os.remove(val_path)
+                os.remove(test_path)
 
-    normalizer.normalize_dir(output_dir)
+    train_h5 = h5py.File(train_path, 'a')
+    val_h5 = h5py.File(val_path, 'a')
+    test_h5 = h5py.File(test_path, 'a')
+
+    if proceed == "C":
+        train_data = load_set_data(train_path)
+        val_data = load_set_data(val_path)
+        test_data = load_set_data(test_path)
+
+    elif proceed == "R" or proceed == None:
+        data = get_projects_info(["TCGA-DLBC"])
+
+        all_cases = list(data['case to images'].keys())
+        shuffle(all_cases)
+
+        #split to train and val+test
+        train_len = int(0.8*len(all_cases))
+        train_set = all_cases[:train_len]
+        all_cases = all_cases[train_len:]
+
+        #split val+test into val and test
+        val_len = int(0.5*len(all_cases))
+        val_set = all_cases[:val_len]
+        test_set = all_cases[val_len:]
+
+        train_data = split_to_sets(train_set, data, train_path)
+        val_data = split_to_sets(val_set, data, val_path)
+        test_data = split_to_sets(test_set, data, test_path)
+
+    if proceed != "Q":
+        dataset = [
+            (list(train_data["image to sample"].keys()), train_h5),
+            (list(val_data["image to sample"].keys()), val_h5),
+            (list(test_data["image to sample"].keys()), test_h5)
+        ]
+
+        # train_images = ["TCGA-44-7671-01A-01-BS1.914604a2-de9c-404d-9fa5-23fbd0b76da3.svs"]
+        # val_images = ["TCGA-FF-8041-01A-01-TS1.b8b69ce3-a325-4864-a5b0-43c450347bc9.svs"]
+        # test_images = ["TCGA-G8-6326-01A-01-TS1.e0eb24da-6293-4ecb-8345-b70149c84d1e.svs"]
+
+        # # # train_images = []
+        # # val_images = []
+        # # test_images = []
+
+        # dataset = [
+        #     (train_images, "train"),
+        #     (val_images, "val"),
+        #     (test_images, "test")
+        # ]
+
+        normalizer = Normalizer()
+        for images, h5_file in dataset:
+            image_h5_file = h5_file.require_group("images")
+
+            for filename in images:
+                if proceed != "C" or ".".join(filename.split(".")[:-1]) not in image_h5_file:
+                    download_image(filename, slide_dir)
+                    
+                    Tile(
+                        slide_loc=os.path.join(slide_dir, filename),
+                        set_hdf5_file=image_h5_file,
+                        normalizer=normalizer,
+                        background=background,
+                        size=size,
+                        reject_rate=reject_rate,
+                        ignore_repeat=ignore_repeat
+                    )
+            
+            h5_file.close()
+            
+        normalizer.normalize_dir(output_dir)
 
 
 if __name__ == "__main__":
@@ -91,12 +115,12 @@ if __name__ == "__main__":
     try:
         slide_dir = args[0]
     except IndexError:
-        parser.error('Missing input directory argument')
+        parser.error('Missing slide image directory argument')
 
     try:
         output_dir = args[1]
     except IndexError:
-        parser.error('Missing input directory argument')
+        parser.error('Missing output directory argument')
 
     build_dataset(
         slide_dir=slide_dir,

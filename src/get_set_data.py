@@ -1,6 +1,7 @@
 import os
 
 import h5py
+import pandas as pd
 
 def recursive_save_to_h5(h5_file, path, item):
     if isinstance(item, dict):
@@ -93,4 +94,33 @@ def split_to_sets(case_set, data, h5_file_name):
         "labels": get_labels(case_set, data, h5_file_name),
         "mutational signatures": get_mutational_signatures(case_set, data, h5_file_name),
         "hugo symbols": get_hugo_symbols(case_set, data, h5_file_name)
+    }
+
+def recursive_load_from_h5(h5_file, path):
+    if h5_file[path].attrs["type"] == dict.__name__:
+        return_dict = {}
+        for key, value in h5_file[path].items():
+            return_dict[key] = recursive_load_from_h5(h5_file, f"{path}/{key}")
+        return return_dict
+
+    elif h5_file[path].attrs["type"] == list.__name__:
+        return_list = []
+        for key, value in h5_file[path].items():
+            return_list.append(recursive_load_from_h5(h5_file, f"{path}/{key}"))
+        
+        return return_list
+    elif h5_file[path] is h5py.Empty("f"):
+        return None
+    else:
+        return h5_file[path][()]
+
+def load_set_data(h5_file_loc):
+    h5_file = h5py.File(h5_file_loc, "r")
+    return {
+        "data dict": recursive_load_from_h5(h5_file, "data_dict"),
+        "image to sample": recursive_load_from_h5(h5_file, "image_to_sample/"),
+        "case to images":  recursive_load_from_h5(h5_file, "case_to_images/"),
+        "labels": pd.read_hdf(h5_file_loc, key="labels"),
+        "mutational signatures": pd.read_hdf(h5_file_loc, key="mutational_signatures"),
+        "hugo symbols": pd.read_hdf(h5_file_loc, key="hugo_symbols"),
     }
