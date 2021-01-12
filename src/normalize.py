@@ -22,7 +22,7 @@ class Normalizer:
 
     
     def fit_h5_set(self, h5_set):
-        for patient_image in h5_set.values():
+        for patient_image in h5_set["images"].values():
             print(f"\rFitting {patient_image.name[1:]}", end="")
             for zoom in patient_image.values():
                 num_images = zoom["images"].shape[0]
@@ -77,7 +77,7 @@ class Normalizer:
 
 
     def normalize_h5_set(self, h5_set):
-        for patient_image in h5_set.values():
+        for patient_image in h5_set["images"].values():
             print(f"\rNormalizing {patient_image.name[1:]}", end="")
             for zoom in patient_image.values():
                 num_images = zoom["images"].shape[0]
