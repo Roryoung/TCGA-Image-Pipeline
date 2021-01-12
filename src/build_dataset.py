@@ -30,17 +30,22 @@ def build_dataset(slide_dir, output_dir, projects, background=0.2, size=255, rej
                 os.remove(val_path)
                 os.remove(test_path)
 
-    train_h5 = h5py.File(train_path, 'a')
-    val_h5 = h5py.File(val_path, 'a')
-    test_h5 = h5py.File(test_path, 'a')
-
     if proceed == "C":
         train_data = load_set_data(train_path)
         val_data = load_set_data(val_path)
         test_data = load_set_data(test_path)
 
+        train_h5 = h5py.File(train_path, 'a')
+        val_h5 = h5py.File(val_path, 'a')
+        test_h5 = h5py.File(test_path, 'a')
     elif proceed == "R" or proceed == None:
+        if projects is None:
+            raise ValueError("Missing list of projects to download.")
         data = get_projects_info(projects)
+
+        train_h5 = h5py.File(train_path, 'a')
+        val_h5 = h5py.File(val_path, 'a')
+        test_h5 = h5py.File(test_path, 'a')
 
         all_cases = list(data['case to images'].keys())
         shuffle(all_cases)
@@ -66,19 +71,19 @@ def build_dataset(slide_dir, output_dir, projects, background=0.2, size=255, rej
             (list(test_data["image to sample"].keys()), test_h5)
         ]
 
-        # train_images = ["TCGA-44-7671-01A-01-BS1.914604a2-de9c-404d-9fa5-23fbd0b76da3.svs"]
-        # val_images = ["TCGA-FF-8041-01A-01-TS1.b8b69ce3-a325-4864-a5b0-43c450347bc9.svs"]
-        # test_images = ["TCGA-G8-6326-01A-01-TS1.e0eb24da-6293-4ecb-8345-b70149c84d1e.svs"]
+        train_images = ["TCGA-44-7671-01A-01-BS1.914604a2-de9c-404d-9fa5-23fbd0b76da3.svs"]
+        val_images = ["TCGA-FF-8041-01A-01-TS1.b8b69ce3-a325-4864-a5b0-43c450347bc9.svs"]
+        test_images = ["TCGA-G8-6326-01A-01-TS1.e0eb24da-6293-4ecb-8345-b70149c84d1e.svs"]
 
-        # # # train_images = []
-        # # val_images = []
-        # # test_images = []
+        # # train_images = []
+        val_images = []
+        test_images = []
 
-        # dataset = [
-        #     (train_images, "train"),
-        #     (val_images, "val"),
-        #     (test_images, "test")
-        # ]
+        dataset = [
+            (train_images, train_h5),
+            (val_images, val_h5),
+            (test_images, test_h5)
+        ]
 
         normalizer = Normalizer()
         for images, h5_file in dataset:
@@ -125,8 +130,8 @@ if __name__ == "__main__":
     except IndexError:
         parser.error('Missing output directory argument.')
 
-    if opts.projects is None:
-        raise parser.error("Missing list of projects to download.")
+    # if opts.projects is None:
+    #     raise parser.error("Missing list of projects to download.")
 
     build_dataset(
         slide_dir=slide_dir,
