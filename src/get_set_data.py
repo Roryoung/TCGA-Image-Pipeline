@@ -3,7 +3,7 @@ import os
 import h5py
 import pandas as pd
 
-from labeling_util import store_hugo, load_hugo
+from src.labeling_util import store_hugo, load_hugo
 
 def recursive_save_to_h5(h5_file, path, item):
     if isinstance(item, dict):
