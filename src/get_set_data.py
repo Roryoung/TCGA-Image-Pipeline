@@ -3,6 +3,8 @@ import os
 import h5py
 import pandas as pd
 
+from labeling_util import store_hugo, load_hugo
+
 def recursive_save_to_h5(h5_file, path, item):
     if isinstance(item, dict):
         for key, value in item.items():
@@ -81,7 +83,8 @@ def get_labels(case_set, data, h5_file_name):
 
 def get_hugo_symbols(case_set, data, h5_file_name):
     hugo_symbols = data["hugo symbols"][data["hugo symbols"]["case_barcode"].isin(case_set)]
-    hugo_symbols.to_hdf(h5_file_name, "/hugo_symbols", format="table")
+    with h5py.File(h5_file_name, "a") as h5_file:
+        store_hugo(h5_file,hugo_symbols,overwrite=True)
 
     return hugo_symbols
 
@@ -115,12 +118,12 @@ def recursive_load_from_h5(h5_file, path):
         return h5_file[path][()]
 
 def load_set_data(h5_file_loc):
-    h5_file = h5py.File(h5_file_loc, "r")
-    return {
-        "data dict": recursive_load_from_h5(h5_file, "data_dict"),
-        "image to sample": recursive_load_from_h5(h5_file, "image_to_sample/"),
-        "case to images":  recursive_load_from_h5(h5_file, "case_to_images/"),
-        "labels": pd.read_hdf(h5_file_loc, key="labels"),
-        "mutational signatures": pd.read_hdf(h5_file_loc, key="mutational_signatures"),
-        "hugo symbols": pd.read_hdf(h5_file_loc, key="hugo_symbols"),
-    }
+    with h5py.File(h5_file_loc, "r") as h5_file:
+        return {
+            "data dict": recursive_load_from_h5(h5_file, "data_dict"),
+            "image to sample": recursive_load_from_h5(h5_file, "image_to_sample/"),
+            "case to images":  recursive_load_from_h5(h5_file, "case_to_images/"),
+            "labels": pd.read_hdf(h5_file_loc, key="labels"),
+            "mutational signatures": pd.read_hdf(h5_file_loc, key="mutational_signatures"),
+            "hugo symbols": load_hugo(h5_file)
+        }

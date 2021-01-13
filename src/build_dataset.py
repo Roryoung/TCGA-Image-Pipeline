@@ -71,19 +71,19 @@ def build_dataset(slide_dir, output_dir, projects, background=0.2, size=255, rej
             (list(test_data["image to sample"].keys()), test_h5)
         ]
 
-        train_images = ["TCGA-44-7671-01A-01-BS1.914604a2-de9c-404d-9fa5-23fbd0b76da3.svs"]
-        val_images = ["TCGA-FF-8041-01A-01-TS1.b8b69ce3-a325-4864-a5b0-43c450347bc9.svs"]
-        test_images = ["TCGA-G8-6326-01A-01-TS1.e0eb24da-6293-4ecb-8345-b70149c84d1e.svs"]
+        # train_images = ["TCGA-44-7671-01A-01-BS1.914604a2-de9c-404d-9fa5-23fbd0b76da3.svs"]
+        # val_images = ["TCGA-FF-8041-01A-01-TS1.b8b69ce3-a325-4864-a5b0-43c450347bc9.svs"]
+        # test_images = ["TCGA-G8-6326-01A-01-TS1.e0eb24da-6293-4ecb-8345-b70149c84d1e.svs"]
 
-        # # train_images = []
-        val_images = []
-        test_images = []
+        # # # train_images = []
+        # val_images = []
+        # test_images = []
 
-        dataset = [
-            (train_images, train_h5),
-            (val_images, val_h5),
-            (test_images, test_h5)
-        ]
+        # dataset = [
+        #     (train_images, train_h5),
+        #     (val_images, val_h5),
+        #     (test_images, test_h5)
+        # ]
 
         normalizer = Normalizer()
         for images, h5_file in dataset:

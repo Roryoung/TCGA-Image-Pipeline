@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 import os
 import collections
+import h5py
+from scipy import sparse
+import csv
 
 #main gdc api querry function
 def get_projects_info(project_names):
@@ -70,6 +73,7 @@ def get_projects_info(project_names):
     image_to_sample={}
     case_to_images={}
     out_hugos = []
+    all_barcodes = []
     
     #mutational signature file for the entire tcga dataset
     signatures = pd.read_csv(os.path.join("manifest", 'TCGA_WES_sigProfiler_SBS_signatures_in_samples.csv'))
@@ -193,30 +197,38 @@ def get_projects_info(project_names):
             print("downloaded file:",zip_file)
             print("file extracted to:",maf_file)
 
-            maf = pd.read_csv(maf_file,sep='\t',header=5)
-            temp = maf.loc[:,['Hugo_Symbol','Tumor_Sample_Barcode']]
-            temp['case_id'] = temp['Tumor_Sample_Barcode'].apply(lambda x : '-'.join(x.split('-')[:3]))
+            with open(maf_file) as maf:
+                rd = csv.reader(maf,delimiter='\t', quotechar='"')
+                #skip headers
+                for i in range(6):
+                    next(rd)
+                #add hugo symbols to each case
+                for line in rd:
+                    symbol = line[0]
+                    case_id = '-'.join(line[15].split('-')[:3])
+                    out_cases[case_id]['hugo_symbols'].append(symbol)
 
-            #add hugo symbols to each case
-            for i,r in temp.iterrows():
-                out_cases[r['case_id']]["hugo_symbols"].append(r["Hugo_Symbol"])
             #add cases to hugo symbol dataframe
+            all_barcodes = all_barcodes+list(out_cases.keys())
             for case in out_cases:
                 symbols = out_cases[case]['hugo_symbols']
                 symbols = dict(collections.Counter(symbols))
-                symbols['case_barcode'] = case
                 out_hugos.append(symbols)
         
         #add the cases doctionary for given project to the projects dictionary
         projects_data[project]=out_cases
         print(80*'-')
     
+    #create sparse dataframe for hugos
+    hugos = dicts_to_sparse(out_hugos)
+    hugos['case_barcode'] = all_barcodes
+
     samples = pd.DataFrame.from_records(out_samples)
     samples = samples.fillna(np.nan)
     print("done")   
     return {"data dict":projects_data,"image to sample":image_to_sample,
             "case to images":case_to_images,"labels":samples, "mutational signatures" : signatures,
-            "hugo symbols" : pd.DataFrame(out_hugos)}
+            "hugo symbols" : hugos}
 
 #file download functionality
 def download_extract(file_id,project_name):
@@ -321,3 +333,73 @@ def download_image(file_name,path=""):
             output_file.write(response.content)
     else:
         print("{} already exists, not downloading anything".format(file_path))
+
+def dicts_to_sparse(dicts):
+    symbol_to_col = {}
+    idx = 0
+    #create maping from hugo symbol to col in coo matrix
+    for case in dicts:
+        for symbol in case:
+            if symbol not in symbol_to_col:
+                symbol_to_col[symbol]=idx
+                idx+=1
+    row = []
+    col = []
+    data = []
+    #build arrays
+    row_idx=0
+    for case in dicts:
+        for symbol in case:
+            row.append(row_idx)
+            col.append(symbol_to_col[symbol])
+            data.append(case[symbol])
+        row_idx += 1
+    #build coo
+    coo = sparse.coo_matrix((data,(row,col)))
+    #convert coo to df
+    df = pd.DataFrame.sparse.from_spmatrix(coo,columns=list(symbol_to_col.keys()))
+    return df
+
+def store_hugo(file,hugo,overwrite=False):
+    #store a hugo symbol dataframe in an existing h5 file
+    hugo_counts = hugo.drop("case_barcode",axis=1)
+    hugo_barcodes = hugo['case_barcode'].to_numpy().astype('S')
+    hugo_counts_coo = hugo_counts.sparse.to_coo()
+
+    #del existing hugo symbols group if overwrite is true
+    if 'hugo_symbols' in file:
+        print('hugo symbols already stored in this file') 
+        if overwrite:
+            print('overwriting')
+            del file['hugo_symbols']
+        else:
+            return
+
+    #store hugos in h5 file
+    file.create_group('hugo_symbols')
+    hugo = file['hugo_symbols']
+    #store values
+    hugo.create_dataset('data', data=hugo_counts_coo.data)
+    hugo.create_dataset('col', data=hugo_counts_coo.col)
+    hugo.create_dataset('row', data=hugo_counts_coo.row)
+    hugo.attrs['shape'] = hugo_counts.shape
+    #store barcodes
+    hugo.create_dataset('barcodes',data=hugo_barcodes)
+    #store names
+    hugo.create_dataset('names',data=hugo_counts.columns.to_numpy().astype('S'))
+
+def load_hugo(file):
+    #reconstruct hugo symbol dataframe from opened h5 file
+    if not 'hugo_symbols' in file:
+        print('hugo symbols data not in file')
+        return None
+    else:
+        hugo = file['hugo_symbols']
+        #restore the count values
+        matrix = sparse.coo_matrix((hugo['data'],(hugo['row'],hugo['col'])),hugo.attrs['shape'])
+        cols = np.array(hugo['names']).astype(str)
+        df = pd.DataFrame.sparse.from_spmatrix(matrix,columns=cols)
+        #add barcodes
+        barcodes = np.array(hugo['barcodes']).astype(str)
+        df['case_barcode']=barcodes
+        return df 
