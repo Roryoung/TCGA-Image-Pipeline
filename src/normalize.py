@@ -44,6 +44,9 @@ class Normalizer:
         """
         sig = sum[ (n_i - 1)sig_i + n_i(y_bar_i - y_bar)^2 ]/ sum[ n_i ]-1
         """
+        if self.means.shape == (0,3) or self.stds.shape == (0,3) or self.size.shape == (0,3):
+            raise Exception("Normalizer has not been fit yet.")
+
         total_n = np.sum(self.size, axis=0)
         weighted_avg = np.sum(np.multiply(self.size, self.means), axis=0)/ total_n
         
