@@ -23,13 +23,16 @@ class Tile:
                  size=255, reject_rate=0.1, ignore_repeat=False):
         """
             Args:
-                - slide_loc: A .svs file of the H&E stained slides
-                - output_dir: The location where the tiles will be saved
-                - normalizer: A tile normalizer object
-                - background: The maximum precentage of background allowed for a saved tile 
-                - size: The width and hight of the tiles at each zoom level
-                - reject_rate: The precentage of rejected tiles to save
-                - ignore_repeat: Automatically overwrte repeated files in the dataset
+                - slide_loc: A .svs file of the H&E stained slides. 
+                - output_dir: The location where the tiles will be saved.
+                - normalizer: A tile normalizer object. (default = None)
+                - background: The maximum precentage of background allowed for a saved tile. (default = 0.2) 
+                - size: The width and hight of the tiles at each zoom level. (default = 255)
+                - reject_rate: The precentage of rejected tiles to save. (default = 0.1)
+                - ignore_repeat: Automatically overwrite repeated files in the dataset. (default = False)
+
+            Returns:
+                - None
         """
         self.normalizer = normalizer
         self.background = background
@@ -104,7 +107,7 @@ class Tile:
 
     def _keep_tile(self, tile, tile_size, tissue_threshold):
         """
-        Determine if a tile should be kept.
+        Determine if a tile should be kept. This is based upon the perecentage of tumour present and the size of the tile.
         
         Args:
             - tile: A PIL Image object of the slide tile
@@ -121,14 +124,14 @@ class Tile:
             - Canny edge detect
             - Binary dilation followed by erosion
             - Binary dilation to fill gaps in tissue
-            - Calcualte tissue precentage and test against given minumum tissue value
+            - Calculate tissue precentage and test against given minimum tissue value
 
         Check 2:
             - Convert tile to optical density space
             - Threshold values
             - Binary dilation followed by erosion
             - Binary dilation to fill gaps in tissue
-            - Calcualte tissue precentage and test against given minumum tissue value
+            - Calculate tissue precentage and test against given minimum tissue value
         """
 
         tile = np.array(tile)

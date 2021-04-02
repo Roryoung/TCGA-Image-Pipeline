@@ -6,9 +6,19 @@ from tile import Tile
 from normalize import Normalizer
 
 def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0.1, ignore_repeat=False):
+    """
+        General function used to build the image dataset. This crops each image at different zoom levels then normalizes the output directory.
+
+        Args:
+            - slide_dir: The location where the svs images are stored.
+            - output_dir: The location where the set of tiles will be saved.
+            - background: Percentage of background allowed. (default = 0.2)
+            - size: The width and height of the output tiles. (default = 255)
+            - reject_rate: The percentage of rejected tiles kept for sanity check (default = 0.1)
+            - ignore_repeat: Automatically overwrite repeated files in the dataset. (default = False)
+    """
     normalizer = Normalizer()
     
-    slide_tiles = []
     for filename in os.listdir(slide_dir):
         slide_path = os.path.join(slide_dir, filename)
         tile = Tile(
