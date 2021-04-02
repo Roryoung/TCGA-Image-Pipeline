@@ -21,7 +21,7 @@ def build_dataset(slide_dir, output_dir, background=0.2, size=255, reject_rate=0
     
     for filename in os.listdir(slide_dir):
         slide_path = os.path.join(slide_dir, filename)
-        tile = Tile(
+        Tile(
             slide_loc=slide_path,
             output_dir=output_dir,
             normalizer=normalizer,
