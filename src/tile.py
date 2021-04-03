@@ -30,9 +30,6 @@ class Tile:
                 - size: The width and hight of the tiles at each zoom level. (default = 255)
                 - reject_rate: The precentage of rejected tiles to save. (default = 0.1)
                 - ignore_repeat: Automatically overwrite repeated files in the dataset. (default = False)
-
-            Returns:
-                - None
         """
         self.normalizer = normalizer
         self.background = background
@@ -69,9 +66,6 @@ class Tile:
             Args:
                 - level: The level of zoom to save
                 - tile_dir: The output directory for this zoom level
-
-            Returns:
-                - None
         """
         max_zoom = float(self.slide.properties[openslide.PROPERTY_NAME_OBJECTIVE_POWER]) / self.slide.level_downsamples[0]
 

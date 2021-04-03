@@ -25,9 +25,6 @@ class Normalizer:
 
             args:
                 - tile: A PIL Image of the tile to be fit.
-            
-            return:
-                - None
         """
         tile_array = np.array(tile)
         lab = color.rgb2lab(tile_array)
@@ -43,9 +40,6 @@ class Normalizer:
 
             args:
                 - current_path: The directory which will be fit.
-            
-            return:
-                - None
         """
         for filename in os.listdir(current_path):
             if filename != "rejected":
@@ -108,9 +102,6 @@ class Normalizer:
 
             args:
                 - current_path: The directory which will be normalized.
-            
-            return:
-                - None
         """
         for filename in os.listdir(current_path):
             if filename != "rejected":
